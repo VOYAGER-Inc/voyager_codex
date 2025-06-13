@@ -37,40 +37,6 @@ git diff "$MERGE_BASE"...HEAD --unified=5 > patch.diff
 echo "📄 Generated patch diff:"
 cat patch.diff
 
-get_codegen_feedback() {
-  local trace_id=$1
-  local max_attempts=15
-  local attempt=0
-  local status=""
-  local feedback=""
-
-  echo "🕒 Waiting for CodeGen result..."
-
-  while [[ $attempt -lt $max_attempts ]]; do
-    attempt=$((attempt + 1))
-    response=$(curl -s -H "Authorization: Bearer $CODEGEN_API_KEY" \
-      "https://api.codegen.com/v1/agent/trace/$trace_id")
-
-    status=$(echo "$response" | jq -r '.status')
-    feedback=$(echo "$response" | jq -r '.output // .result // .message // .choices[0].text // empty')
-
-    if [[ "$status" == "COMPLETED" && -n "$feedback" ]]; then
-      echo "✅ CodeGen feedback received."
-      echo "$feedback"
-      return
-    elif [[ "$status" == "FAILED" ]]; then
-      echo "❌ CodeGen job failed."
-      echo ""
-      return
-    fi
-
-    sleep 2
-  done
-
-  echo "⚠️ CodeGen response timeout after $max_attempts attempts."
-  echo ""
-}
-
 FILE=""
 BLOCK=""
 START_LINE=""
@@ -112,13 +78,35 @@ $BLOCK"
       -H "Content-Type: application/json" \
       -d "{\"prompt\": $(jq -Rs <<< "$PROMPT") }")
 
-    TRACE_ID=$(echo "$RESPONSE" | jq -r '.id')
-    echo "📬 Trace ID: $TRACE_ID"
-    echo "🔗 View progress: https://codegen.sh/agent/trace/$TRACE_ID"
+    TRACE_ID=$(echo "$RESPONSE" | jq -r '.id // .trace_id // empty')
 
-    FEEDBACK=$(get_codegen_feedback "$TRACE_ID")
+    if [[ -n "$TRACE_ID" ]]; then
+      echo "📬 Trace ID: $TRACE_ID"
+      echo "🔗 View progress: https://codegen.sh/agent/trace/$TRACE_ID"
+    fi
 
-    if [[ -n "$FEEDBACK" ]]; then
+    ATTEMPTS=10
+    SLEEP=6
+    FEEDBACK=""
+
+    for ((i=1; i<=ATTEMPTS; i++)); do
+      POLL_RESPONSE=$(curl -s -X GET "https://api.codegen.com/v1/agent/trace/$TRACE_ID" \
+        -H "Authorization: Bearer $CODEGEN_API_KEY")
+
+      FEEDBACK=$(echo "$POLL_RESPONSE" | jq -r '.result // .output // .message // .choices[0].text // empty')
+
+      if [[ -n "$FEEDBACK" && "$FEEDBACK" != "null" ]]; then
+        echo "✅ Received feedback from CodeGen."
+        break
+      fi
+
+      echo "⏳ Waiting for CodeGen response... ($i/$ATTEMPTS)"
+      sleep $SLEEP
+    done
+
+    if [[ -z "$FEEDBACK" || "$FEEDBACK" == "null" ]]; then
+      echo "⚠️ No valid feedback received from CodeGen."
+    else
       gh api \
         -X POST \
         -H "Authorization: token $GITHUB_TOKEN" \
