@@ -18,6 +18,9 @@ on:
   pull_request:
     types: [opened, synchronize]
 
+permissions:
+  pull-requests: write
+
 jobs:
   review:
     runs-on: ubuntu-latest

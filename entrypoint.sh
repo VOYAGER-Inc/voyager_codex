@@ -5,7 +5,7 @@ EXTENSIONS=${INPUT_EXTENSIONS:-php,js,ts,py,go}
 CODEGEN_API_KEY=${INPUT_CODEGEN_API_KEY}
 CODEGEN_ORG_ID=${INPUT_CODEGEN_ORG_ID}
 
-REPO=$(basename -s .git `git config --get remote.origin.url`)
+REPO=$(basename "$GITHUB_REPOSITORY")
 OWNER=$(echo $GITHUB_REPOSITORY | cut -d'/' -f1)
 PR_NUMBER=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
 
