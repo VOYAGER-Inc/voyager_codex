@@ -1,16 +1,23 @@
 #!/bin/bash
 set -e
 
+git config --global --add safe.directory /github/workspace
+
 EXTENSIONS=${INPUT_EXTENSIONS:-php,js,ts,py,go}
 CODEGEN_API_KEY=${INPUT_CODEGEN_API_KEY}
 CODEGEN_ORG_ID=${INPUT_CODEGEN_ORG_ID}
 
+if [[ -z "$CODEGEN_API_KEY" || -z "$CODEGEN_ORG_ID" ]]; then
+  echo "❌ CODEGEN_API_KEY or CODEGEN_ORG_ID is not set."
+  exit 1
+fi
+
 REPO=$(basename "$GITHUB_REPOSITORY")
-OWNER=$(echo $GITHUB_REPOSITORY | cut -d'/' -f1)
+OWNER=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f1)
 PR_NUMBER=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
 
-git fetch origin $GITHUB_BASE_REF --depth=1
-git diff origin/$GITHUB_BASE_REF...HEAD --unified=5 > patch.diff
+git fetch origin "$GITHUB_BASE_REF" --depth=1
+git diff origin/"$GITHUB_BASE_REF"...HEAD --unified=5 > patch.diff
 
 FILE=""
 BLOCK=""
@@ -32,7 +39,7 @@ while IFS= read -r line; do
     BLOCK+="$line"$'\n'
   fi
 
-  if [[ -n "$BLOCK" && -n "$FILE" && -n "$START_LINE" && "$line" == "" ]]; then
+  if [[ -n "$BLOCK" && -n "$FILE" && -n "$START_LINE" && -z "$line" ]]; then
     EXT="${FILE##*.}"
     if [[ ",$EXTENSIONS," == *",$EXT,"* ]]; then
       echo "🔍 Reviewing block in $FILE:$START_LINE..."
