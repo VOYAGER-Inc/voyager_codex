@@ -134,14 +134,19 @@ Code:
 $BLOCK"
 
   echo "📤 Sending final block to CodeGen API..."
-  echo "$PROMPT"
 
   RESPONSE=$(curl -s -X POST "https://api.codegen.com/v1/organizations/$CODEGEN_ORG_ID/agent/run" \
     -H "Authorization: Bearer $CODEGEN_API_KEY" \
     -H "Content-Type: application/json" \
     -d "{\"prompt\": $(jq -Rs <<< "$PROMPT") }")
 
-  FEEDBACK=$(echo "$RESPONSE" | jq -r '.output // .result // .message // .choices[0].text // "No feedback."')
+  echo "$RESPONSE" | jq
+  FEEDBACK=$(echo "$RESPONSE" | jq -r '.output // .result // .message // .choices[0].text // empty')
+
+  if [[ -z "$FEEDBACK" ]]; then
+    echo "⚠️ No valid feedback received from CodeGen."
+    exit 0
+  fi
 
   if [[ "$FEEDBACK" != "No feedback." && "$FEEDBACK" != "null" ]]; then
     gh api \
