@@ -6,8 +6,18 @@ git config --global --add safe.directory /github/workspace
 CODEGEN_API_KEY=${INPUT_CODEGEN_API_KEY}
 CODEGEN_ORG_ID=${INPUT_CODEGEN_ORG_ID}
 
-if [[ -z "$CODEGEN_API_KEY" || -z "$CODEGEN_ORG_ID" || -z "$GITHUB_TOKEN" ]]; then
-  echo "❌ CODEGEN_API_KEY, CODEGEN_ORG_ID, or GITHUB_TOKEN is not set."
+if [[ -z "$CODEGEN_API_KEY" ]]; then
+  echo "❌ CODEGEN_API_KEY is not set."
+  exit 1
+fi
+
+if [[ -z "$CODEGEN_ORG_ID" ]]; then
+  echo "❌ CODEGEN_ORG_ID is not set."
+  exit 1
+fi
+
+if [[ -z "$GITHUB_TOKEN" ]]; then
+  echo "❌ GITHUB_TOKEN is not set."
   exit 1
 fi
 
