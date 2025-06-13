@@ -1,0 +1,18 @@
+name: Test Voyager Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  test-review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Run Voyager Review Action
+        uses: ./
+        with:
+          codegen_api_key: ${{ secrets.CODEGEN_API_KEY }}
+          codegen_org_id: ${{ secrets.CODEGEN_ORG_ID }}

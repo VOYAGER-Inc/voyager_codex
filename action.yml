@@ -1,0 +1,15 @@
+name: "Voyager CodeX"
+description: "Automatically reviews PR changes using CodeGen Inc and posts inline comments with severity classification"
+author: "Voyager Team"
+
+inputs:
+  codegen_api_key:
+    description: "Your CodeGen Inc API Key"
+    required: true
+  codegen_org_id:
+    description: "Your CodeGen Inc Organization ID"
+    required: true
+
+runs:
+  using: "docker"
+  image: "Dockerfile"
