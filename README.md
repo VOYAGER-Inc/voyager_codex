@@ -19,6 +19,7 @@ on:
     types: [opened, synchronize]
 
 permissions:
+  contents: read
   pull-requests: write
 
 jobs:
@@ -26,10 +27,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Code Review with Voyager
-        uses: voyager-tech/voyager-codex@v1
+        uses: VOYAGER-Inc/voyager_codex@v1
         with:
           codegen_api_key: ${{ secrets.CODEGEN_API_KEY }}
           codegen_org_id: ${{ secrets.CODEGEN_ORG_ID }}
