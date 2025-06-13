@@ -9,6 +9,9 @@ inputs:
   codegen_org_id:
     description: "Your CodeGen Inc Organization ID"
     required: true
+  github_token:
+    required: true
+    description: "GitHub Token"
 
 runs:
   using: "docker"
