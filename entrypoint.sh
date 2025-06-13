@@ -58,7 +58,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     BLOCK+="$line"$'\n'
   fi
 
-  if [[ -n "$BLOCK" && -n "$FILE" && -n "$START_LINE" && ( -z "$line" || "$line" == "${EOF_MARKER:-}" ) ]]; then
+  if [[ -n "$BLOCK" && -n "$FILE" && -n "$START_LINE" ]]; then
     if [[ "$FILE" =~ \.(png|jpg|jpeg|gif|ico|svg|md|lock|json|yml|yaml|txt|map|snap|log)$ ]]; then
       BLOCK=""
       continue
@@ -73,40 +73,31 @@ Classify each finding as:
 Code:
 $BLOCK"
 
+    echo "📤 Sending to CodeGen API..."
     RESPONSE=$(curl -s -X POST "https://api.codegen.com/v1/organizations/$CODEGEN_ORG_ID/agent/run" \
       -H "Authorization: Bearer $CODEGEN_API_KEY" \
       -H "Content-Type: application/json" \
       -d "{\"prompt\": $(jq -Rs <<< "$PROMPT") }")
 
-    TRACE_ID=$(echo "$RESPONSE" | jq -r '.id // .trace_id // empty')
+    TRACE_ID=$(echo "$RESPONSE" | jq -r '.id // empty')
+    echo "📬 Trace ID: $TRACE_ID"
+    echo "🔗 View progress: https://codegen.sh/agent/trace/$TRACE_ID"
 
-    if [[ -n "$TRACE_ID" ]]; then
-      echo "📬 Trace ID: $TRACE_ID"
-      echo "🔗 View progress: https://codegen.sh/agent/trace/$TRACE_ID"
-    fi
+    # Wait for CodeGen response
+    for i in {1..10}; do
+      RESULT=$(curl -s -H "Authorization: Bearer $CODEGEN_API_KEY" \
+        "https://api.codegen.com/v1/organizations/$CODEGEN_ORG_ID/agent/trace/$TRACE_ID")
+      FEEDBACK=$(echo "$RESULT" | jq -r '.result // .output // .message // .choices[0].text // "No feedback."')
 
-    ATTEMPTS=10
-    SLEEP=6
-    FEEDBACK=""
-
-    for ((i=1; i<=ATTEMPTS; i++)); do
-      POLL_RESPONSE=$(curl -s -X GET "https://api.codegen.com/v1/agent/trace/$TRACE_ID" \
-        -H "Authorization: Bearer $CODEGEN_API_KEY")
-
-      FEEDBACK=$(echo "$POLL_RESPONSE" | jq -r '.result // .output // .message // .choices[0].text // empty')
-
-      if [[ -n "$FEEDBACK" && "$FEEDBACK" != "null" ]]; then
-        echo "✅ Received feedback from CodeGen."
+      if [[ "$FEEDBACK" != "null" && "$FEEDBACK" != "No feedback." ]]; then
         break
       fi
 
-      echo "⏳ Waiting for CodeGen response... ($i/$ATTEMPTS)"
-      sleep $SLEEP
+      echo "⏳ Waiting for feedback... ($i)"
+      sleep 3
     done
 
-    if [[ -z "$FEEDBACK" || "$FEEDBACK" == "null" ]]; then
-      echo "⚠️ No valid feedback received from CodeGen."
-    else
+    if [[ "$FEEDBACK" != "null" && "$FEEDBACK" != "No feedback." ]]; then
       gh api \
         -X POST \
         -H "Authorization: token $GITHUB_TOKEN" \
@@ -116,6 +107,8 @@ $BLOCK"
         -f path="$FILE" \
         -f line="$START_LINE" \
         -f side="RIGHT" || echo "❌ Failed to post comment to $FILE:$START_LINE"
+    else
+      echo "⚠️ No valid feedback received from CodeGen."
     fi
 
     BLOCK=""
